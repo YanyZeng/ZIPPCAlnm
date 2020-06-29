@@ -6,14 +6,15 @@ Zero-Inflated Probabilistic PCA framework with logistical normal multinomial dis
 install.packages("devtools")  
 devtools::install_github("YanyZeng/ZIPPCAlnm")  
 library(ZIPPCAlnm) 
-```r
+```
+
 # Description
 Zero-Inflated Probabilistic PCA framework with logistical normal multinomial distribution (ZIPPCA-LNM), that extends probabilistic PCA from the Gaussian setting to multivariate abundance data, and an empirical Bayes approach was proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 
 # Usage
 ```r
 ZIPPCAlnm(X, d_choice = FALSE)
-```r
+```
 * X: count matrix of observations.
 * d_choice: logical, if TRUE the rank or number of factors, or dimension after dimensional reduction, will be chosen from 1 to 5. Defaults to FALSE.
 

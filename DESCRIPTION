@@ -1,0 +1,16 @@
+Package: ZIPPCAlnm
+Type: Package
+Title: Zero-Inflated Probabilistic PCA with logistical normal multinomial (ZIPPCA-LNM)
+Version: 0.1.0
+Author: Yanyan Zeng
+Maintainer: Yanyan Zeng <zengyanyan@sjtu.edu.cn>
+Description: Zero-Inflated Probabilistic PCA with logistical normal multinomial (ZIPPCA-LNM),
+             for the underlying composition analysis of multivariate count data,and propose 
+             an extend variational approximation method, called classfic variational approximation (CVA) for estimation.
+License: GPL-2
+Encoding: UTF-8
+URL: https://github.com/yanyanZeng/ZIPPCAlnm.git
+Repository: CRAN
+Publication: 
+RoxygenNote: 7.1.0
+Depends: MASS

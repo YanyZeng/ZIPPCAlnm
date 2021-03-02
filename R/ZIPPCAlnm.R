@@ -700,7 +700,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       G_w <- rep(0,rank);bic <- rep(0,rank);
 
       if (parallel){
-        Mres <- foreach(w=1:rank) %dopar% {
+        Mres <- foreach::foreach(w=1:rank) %dopar% {
           re <- ZILNMVA(X,V,n.factors=w)
           re
         }
@@ -769,7 +769,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         # X_rept <- X[cvsample==1]
         L_rept <- matrix(0, nrow = 1, ncol = rank)
         if (parallel){
-          Mres <- foreach(w=1:rank)%dopar% {
+          Mres <- foreach::foreach(w=1:rank)%dopar% {
             re <- ZILNMVA(X,V, n.factors=w, cv_group=cvsample)
             re$VLB_rept
           }

@@ -13,4 +13,4 @@ URL: https://github.com/YanyZeng/ZIPPCAlnm.git
 Repository: CRAN
 Publication: 
 RoxygenNote: 7.1.0
-Depends: MASS
+Depends: MASS,parallel,foreach,doParallel

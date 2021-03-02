@@ -4,12 +4,17 @@
 \alias{ZIPPCAlnm}
 \title{ZIPPCAlnm}
 \usage{
-ZIPPCAlnm(X, d_choice = FALSE)
+ZIPPCAlnm(X, V = NULL, d_choice = FALSE, parallel = TRUE)
 }
 \arguments{
 \item{X}{count matrix of observations.}
 
-\item{d_choice}{logical, if TRUE the rank or number of factors, or dimension after dimensional reduction, will be chosen from 1 to 5. Defaults to FALSE.}
+\item{V}{vector of sample covariate.}
+
+\item{d_choice}{FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, or dimension after dimensional reduction,
+will be chosen from 1 to 5.  Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). Defaults to FALSE.}
+
+\item{parallel}{logical, if TRUE, use parallel toolbox to accelerate.}
 }
 \value{
 \item{VLB }{ variational lower bound of log likelihood}
@@ -22,9 +27,11 @@ ZIPPCAlnm(X, d_choice = FALSE)
  \itemize{
    \item{factor_coefs_j }{ coefficients of latent variables fator scores or factor loadings}
    \item{factor_coefs_0 }{ taxon-specific intercepts}
+   \item{gamma }{ coeffcients of sample covariate}
    }}
  \item{Q }{ the underlying composition of microbiome data}
- \item{bic }{ if d_choice is TRUE, the rank or factors, or dimension, will be chosen with Bayesian information criterion (BIC)}
+ \item{bic}{ if d_choice is "BIC", the number of the rank or factors, or dimension, will be chosen by BIC type information criterion}
+ \item{cv}{ if d_choice is "CV", the number of the rank or factors, or dimension, will be chosen by Cross-validation}
 }
 \description{
 Zero-Inflated Probabilistic PCA framework with logistical normal multinomial distribution (ZIPPCA-LNM),
@@ -40,7 +47,6 @@ si <- diag(n.factors)
 me <- c(0,0)
 f <- matrix(0,nrow = n.n, ncol = n.factors)
 for(i in 1:n.n){
- #f[i,] <- rnorm(n.factors, mean = 0, sd = 1)
  f[i,] <- mvrnorm(1,me,si)
 }
 betaj <- matrix(0,nrow = n.w, ncol = n.factors)
@@ -56,18 +62,19 @@ for(i in 1:n.n){
 }
 sum <- rowSums(exp(l))
 Qn <- exp(l)/sum
+sum <- matrix(rowSums((1-z)*exp(l)),n.n,n.w)
+Qn_z <- matrix(I(z==0)*(exp(l)/sum)+I(z==1)*0,n.n,n.w)
 X <- matrix(0,n.n,n.w,byrow = TRUE)
 for(i in 1:n.n){
-  X[i,] <- rmultinom(1, size = runif(1,800,1000), prob = Qn[i,])
+  X[i,] <- rmultinom(1, size = runif(1,800,1000), prob = Qn_z[i,])
 }
-X[z==1] <-0
 zerorow <- which(rowSums(X)==0)
 if(length(zerorow) >0 ){
-  X <- X[-zerorow,];Qn <- Qn[-zerorow,];
+  X <- X[-zerorow,];Qn <- Qn[-zerorow,];Qn_z <- Qn_z[-zerorow,];
 }
 zerocol <- which(colSums(X)==0)
 if(length(zerocol) >0 ){
-  X <- X[,-zerocol];Qn <- Qn[,-zerocol];
+  X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 }
-result <- ZIPPCAlnm::ZIPPCAlnm(X,d_choice=FALSE)
+result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,d_choice=FALSE,parallel=TRUE)
 }

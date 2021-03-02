@@ -2,3 +2,5 @@
 export(ZIPPCAlnm)
 importFrom(stats,optim)
 import(MASS)
+import(doParallel)
+import(parallel)

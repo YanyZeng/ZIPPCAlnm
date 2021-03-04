@@ -3,7 +3,7 @@
 #' that extends probabilistic PCA from the Gaussian setting to multivariate abundance data, and an empirical Bayes approach was
 #' proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 #' @param X count matrix of observations.
-#' @param V vector of sample covariate.
+#' @param V vector of the sample covariate.
 #' @param rank FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
 

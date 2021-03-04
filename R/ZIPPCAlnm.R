@@ -12,7 +12,7 @@
 #'
 #'
 #'  \item{VLB }{ variational lower bound of log likelihood}
-#'  \item{lvs}{list of latent variables
+#'  \item{lvs}{list of latent variables}
 #'  \itemize{
 #'    \item{pi }{ the probabilities of excess zeros}
 #'    \item{factor_scores }{ coordinates or factor scores in low-dimensional subspace}
@@ -263,7 +263,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         }
       }
 
-      ###update alpha,beta0
+      ###update gamma
       gam_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
         new.factor_coefs_j <- matrix(b,n.f,n.factors)
@@ -509,7 +509,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         }
       }
 
-      ###update alpha,beta0
+      ###update gamma
       b0_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
         new.factor_coefs_j <- matrix(b,n.f,n.factors)
@@ -696,6 +696,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       eta <- list()
       sigma <- list()
       gamma <- list()
+      iter <- rep(0,rank)
       L <- rep(0,rank)
       G_w <- rep(0,rank);bic <- rep(0,rank);
 
@@ -706,6 +707,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         }
         for(w in 1:rank){
           L[w] <- Mres[[w]]$VLB
+          iter[w] <- Mres[[w]]$iter
           beta[[w]] <- Mres[[w]]$params$factor_coefs_j
           beta0[[w]] <- Mres[[w]]$params$factor_coefs_0
           eta[[w]] <- Mres[[w]]$params$eta
@@ -723,6 +725,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         for(w in 1:rank){
           re <- ZILNMVA(X,V,n.factors=w)
           L[w] <- re$VLB
+          iter[w] <- re$iter
           beta[[w]] <- re$params$factor_coefs_j
           beta0[[w]] <- re$params$factor_coefs_0
           eta[[w]] <- re$params$eta
@@ -737,7 +740,9 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
           bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
         }
       }
+      out.list$bic <- which.min(bic)
       out.list$VLB <- L[[(which.min(bic))]]
+      out.list$iter <- iter[[(which.min(bic))]]
       out.list$lvs$pi <- pi[[(which.min(bic))]]
       out.list$lvs$factor_scores <- f[[(which.min(bic))]]
       out.list$lvs$sigma <- sigma[[(which.min(bic))]]
@@ -748,8 +753,6 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       out.list$Q <- Q[[(which.min(bic))]]
       out.list$Q2 <- Q2[[(which.min(bic))]]
       out.list$Q3 <- Q3[[(which.min(bic))]]
-      out.list$bic <- which.min(bic)
-
     }
     if(d_choice=="CV"){
 
@@ -765,8 +768,6 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         cvsample <- cvs
         cvsample[cvsample==rept] <- 1
         cvsample[cvsample!=1] <- 0
-        # X_cv <- X[cvsample==0]
-        # X_rept <- X[cvsample==1]
         L_rept <- matrix(0, nrow = 1, ncol = rank)
         if (parallel){
           Mres <- foreach::foreach(w=1:rank)%dopar% {
@@ -787,17 +788,18 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       re <- tryCatch({ZILNMVA(X,V,n.factors=cv)},error=function(e){NaN})
 
       out.list$cv <- cv
-      out.list$VLB <- re$VLB[[cv]]
-      out.list$params$factor_coefs_j <- re$params$factor_coefs_j[[cv]]
-      out.list$params$factor_coefs_0 <-  re$params$factor_coefs_0[[cv]]
-      out.list$params$eta <- re$params$eta[[cv]]
-      out.list$params$gamma <- re$params$gamma[[cv]]
-      out.list$lvs$sigma <- re$lvs$sigma[[cv]]
-      out.list$lvs$factor_scores <- re$lvs$factor_scores[[cv]]
-      out.list$lvs$pi <-  re$lvs$pi[[cv]]
-      out.list$Q <-re$Q[[cv]]
-      out.list$Q2 <-re$Q2[[cv]]
-      out.list$Q3 <-re$Q3[[cv]]
+      out.list$VLB <- re$VLB
+      out.list$iter <- re$iter
+      out.list$params$factor_coefs_j <- re$params$factor_coefs_j
+      out.list$params$factor_coefs_0 <-  re$params$factor_coefs_0
+      out.list$params$eta <- re$params$eta
+      out.list$params$gamma <- re$params$gamma
+      out.list$lvs$sigma <- re$lvs$sigma
+      out.list$lvs$factor_scores <- re$lvs$factor_scores
+      out.list$lvs$pi <-  re$lvs$pi
+      out.list$Q <-re$Q
+      out.list$Q2 <-re$Q2
+      out.list$Q3 <-re$Q3
 
     }
     if (parallel){

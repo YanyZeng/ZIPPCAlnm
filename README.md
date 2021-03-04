@@ -16,7 +16,7 @@ Zero-Inflated Probabilistic PCA framework with logistical normal multinomial dis
 ZIPPCAlnm(X, V = NULL, rank = FALSE, parallel = TRUE)
 ```
 * X: count matrix of observations.
-* V: vector of sample covariate.
+* V: vector of the sample covariate.
 * rank: FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 * parallel: logical, if TRUE, use parallel toolbox to accelerate.
 

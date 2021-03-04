@@ -4,7 +4,7 @@
 #' proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 #' @param X count matrix of observations.
 #' @param V vector of sample covariate.
-#' @param d_choice FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
+#' @param rank FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
 
 #' @return
@@ -65,11 +65,11 @@
 #' if(length(zerocol) >0 ){
 #'   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 #' }
-#' result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,d_choice=FALSE,parallel=TRUE)
+#' result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,rank=FALSE,parallel=TRUE)
 
 #' @export
 
-ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
+ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
 
   ZILNMVA <- function(X,V,trace = FALSE,n.factors=2,maxit = 100,cv_group=NULL) {
 
@@ -670,7 +670,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
     return(out.list)
   }
 
-  if(d_choice==FALSE){
+  if(rank==FALSE){
     re <- ZILNMVA(X,V)
   }else{
     if (parallel){
@@ -681,9 +681,9 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
     out.list <- list()
     p <- ncol(X)
     n <- nrow(X)
-    rank <- 5
+    r <- 5
     fold <- 5
-    if(d_choice=="BIC"){
+    if(rank=="BIC"){
 
       beta <- list()
       beta0 <- list()
@@ -695,16 +695,16 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       eta <- list()
       sigma <- list()
       gamma <- list()
-      iter <- rep(0,rank)
-      L <- rep(0,rank)
-      G_w <- rep(0,rank);bic <- rep(0,rank);
+      iter <- rep(0,r)
+      L <- rep(0,r)
+      G_w <- rep(0,r);bic <- rep(0,r);
 
       if (parallel){
-        Mres <- foreach::foreach(w=1:rank) %dopar% {
+        Mres <- foreach::foreach(w=1:r) %dopar% {
           re <- ZILNMVA(X,V,n.factors=w)
           re
         }
-        for(w in 1:rank){
+        for(w in 1:r){
           L[w] <- Mres[[w]]$VLB
           iter[w] <- Mres[[w]]$iter
           beta[[w]] <- Mres[[w]]$params$factor_coefs_j
@@ -721,7 +721,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
           bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
         }
       }else{
-        for(w in 1:rank){
+        for(w in 1:r){
           re <- ZILNMVA(X,V,n.factors=w)
           L[w] <- re$VLB
           iter[w] <- re$iter
@@ -753,7 +753,7 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
       out.list$Q2 <- Q2[[(which.min(bic))]]
       out.list$Q3 <- Q3[[(which.min(bic))]]
     }
-    if(d_choice=="CV"){
+    if(rank=="CV"){
 
       cvs<- NULL
       for (i in 1:fold){
@@ -767,22 +767,22 @@ ZIPPCAlnm <- function(X,V=NULL,d_choice=FALSE,parallel=TRUE){
         cvsample <- cvs
         cvsample[cvsample==rept] <- 1
         cvsample[cvsample!=1] <- 0
-        L_rept <- matrix(0, nrow = 1, ncol = rank)
+        L_rept <- matrix(0, nrow = 1, ncol = r)
         if (parallel){
-          Mres <- foreach::foreach(w=1:rank)%dopar% {
+          Mres <- foreach::foreach(w=1:r)%dopar% {
             re <- ZILNMVA(X,V, n.factors=w, cv_group=cvsample)
             re$VLB_rept
           }
-          L_rept[1,(1:rank)] <- Mres
+          L_rept[1,(1:r)] <- Mres
         }else{
-          for(w in 1:rank){
+          for(w in 1:r){
             re <- ZILNMVA(X,V, n.factors=w, cv_group=cvsample)
             L_rept[1,w] <- re$VLB_rept
           }
         }
         All_rept <- rbind(All_rept, L_rept)
       }
-      cv <- which.max(colSums(matrix(unlist(All_rept),fold,rank)))
+      cv <- which.max(colSums(matrix(unlist(All_rept),fold,r)))
 
       re <- tryCatch({ZILNMVA(X,V,n.factors=cv)},error=function(e){NaN})
 

@@ -13,11 +13,11 @@ Zero-Inflated Probabilistic PCA framework with logistical normal multinomial dis
 
 # Usage
 ```r
-ZIPPCAlnm(X, V = NULL, d_choice = FALSE, parallel = TRUE)
+ZIPPCAlnm(X, V = NULL, rank = FALSE, parallel = TRUE)
 ```
 * X: count matrix of observations.
 * V: vector of sample covariate.
-* d_choice: FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
+* rank: FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 * parallel: logical, if TRUE, use parallel toolbox to accelerate.
 
 
@@ -60,5 +60,5 @@ zerocol <- which(colSums(X)==0)
 if(length(zerocol) >0 ){
   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 }
-result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,d_choice=FALSE,parallel=TRUE)
+result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,rank=FALSE,parallel=TRUE)
  ```

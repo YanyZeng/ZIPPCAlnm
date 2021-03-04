@@ -4,8 +4,7 @@
 #' proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 #' @param X count matrix of observations.
 #' @param V vector of sample covariate.
-#' @param d_choice FALSE, “BIC or "CV". Indicating whether the rank or number of factors, or dimension after dimensional reduction,
-#'                 will be chosen from 1 to 5.  Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation).Defaults to FALSE.
+#' @param d_choice FALSE, “BIC or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
 
 #' @return
@@ -24,8 +23,8 @@
 #'    \item{gamma }{ coeffcients of sample covariate}
 #'    }}
 #'  \item{Q }{ the underlying composition of microbiome data}
-#'  \item{bic}{ if d_choice is "BIC", the number of the rank or factors, or dimension, will be chosen by BIC type information criterion}
-#'  \item{cv}{ if d_choice is "CV", the number of the rank or factors, or dimension, will be chosen by Cross-validation}
+#'  \item{bic}{ the number of the rank selection, chosen by BIC type information criterion}
+#'  \item{cv}{ the number of the rank selection, chosen by cross-validation}
 
 #' @examples
 #' n.n = 50

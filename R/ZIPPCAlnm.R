@@ -4,7 +4,7 @@
 #' proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 #' @param X count matrix of observations.
 #' @param V vector of sample covariate.
-#' @param d_choice FALSE, “BIC or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
+#' @param d_choice FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
 
 #' @return

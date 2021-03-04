@@ -9,7 +9,7 @@ ZIPPCAlnm(X, V = NULL, rank = FALSE, parallel = TRUE)
 \arguments{
 \item{X}{count matrix of observations.}
 
-\item{V}{vector of sample covariate.}
+\item{V}{vector of the sample covariate.}
 
 \item{rank}{FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
 }

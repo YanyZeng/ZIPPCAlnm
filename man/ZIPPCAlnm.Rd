@@ -4,18 +4,19 @@
 \alias{ZIPPCAlnm}
 \title{ZIPPCAlnm}
 \usage{
-ZIPPCAlnm(X, V = NULL, rank = FALSE, parallel = TRUE)
+ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
 }
 \arguments{
 \item{X}{count matrix of observations.}
 
 \item{V}{vector of the sample covariate.}
-
-\item{rank}{FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
-}
-
+\item{n.factors} {the rank or number of factors, after dimensional reduction. Defaults to 2.}
+\item{rank}{FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.}
+\item{trace} {logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.}
+\item{maxit} {maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.}
 \item{parallel}{logical, if TRUE, use parallel toolbox to accelerate.}
 }
+
 \value{
 \item{VLB }{ variational lower bound of log likelihood}
  \item{lvs}{list of latent variables
@@ -76,5 +77,5 @@ zerocol <- which(colSums(X)==0)
 if(length(zerocol) >0 ){
   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 }
-result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,rank=FALSE,parallel=TRUE)
+result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
 }

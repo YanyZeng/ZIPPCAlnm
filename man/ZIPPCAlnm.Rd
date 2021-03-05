@@ -10,10 +10,15 @@ ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, paralle
 \item{X}{count matrix of observations.}
 
 \item{V}{vector of the sample covariate.}
-\item{n.factors} {the rank or number of factors, after dimensional reduction. Defaults to 2.}
+
+\item{n.factors}{the rank or number of factors, after dimensional reduction. Defaults to 2.}
+
 \item{rank}{FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.}
-\item{trace} {logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.}
-\item{maxit} {maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.}
+
+\item{trace}{logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.}
+
+\item{maxit}{maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.}
+
 \item{parallel}{logical, if TRUE, use parallel toolbox to accelerate.}
 }
 

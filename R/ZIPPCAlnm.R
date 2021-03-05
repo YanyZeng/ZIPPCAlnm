@@ -726,7 +726,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }
       }else{
         for(w in 1:r){
-          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=NULL)
+          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel=FALSE,cv_group=NULL)
           L[w] <- re$VLB
           iter[w] <- re$iter
           beta[[w]] <- re$params$factor_coefs_j
@@ -780,7 +780,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           L_rept[1,(1:r)] <- Mres
         }else{
           for(w in 1:r){
-            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=cvsample)
+            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,,parallel=FALSE,cv_group=cvsample)
             L_rept[1,w] <- re$VLB_rept
           }
         }

@@ -4,7 +4,10 @@
 #' proposed for inferring microbial compositions. An efficient VA algorithm, classification VA, has been developed for fitting this model.
 #' @param X count matrix of observations.
 #' @param V vector of the sample covariate.
+#' @param n.factors the rank or number of factors, after dimensional reduction. Defaults to 2.
 #' @param rank FALSE, "BIC" or "CV". Indicating whether the rank or number of factors, is chosen from 1 to 5. Options are "BIC" (Bayesian information criterion), and "CV" (Cross-validation). BIC is recommended. Defaults to FALSE.
+#' @param trace logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.
+#' @param maxit maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
 
 #' @return
@@ -65,13 +68,14 @@
 #' if(length(zerocol) >0 ){
 #'   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 #' }
-#' result <- ZIPPCAlnm::ZIPPCAlnm(X,V=NULL,rank=FALSE,parallel=TRUE)
+#' result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
 
 #' @export
 
-ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
+ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
+                      trace = FALSE, maxit = 100, parallel=TRUE){
 
-  ZILNMVA <- function(X,V,trace = FALSE,n.factors=2,maxit = 100,cv_group=NULL) {
+  ZILNMVA <- function(X,V,n.factors,trace,maxit,parallel,cv_group=NULL) {
 
     n.s<-nrow(X); n.f<-ncol(X);
     if(is.null(V)){Y <- 0
@@ -671,7 +675,7 @@ ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
   }
 
   if(rank==FALSE){
-    re <- ZILNMVA(X,V)
+    re <- ZILNMVA(X,V,n.factors,trace,maxit,parallel,cv_group=NULL)
   }else{
     if (parallel){
       #cl <- parallel::makeCluster(detectCores(logical = FALSE))
@@ -701,7 +705,7 @@ ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
 
       if (parallel){
         Mres <- foreach::foreach(w=1:r) %dopar% {
-          re <- ZILNMVA(X,V,n.factors=w)
+          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=NULL)
           re
         }
         for(w in 1:r){
@@ -722,7 +726,7 @@ ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
         }
       }else{
         for(w in 1:r){
-          re <- ZILNMVA(X,V,n.factors=w)
+          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=NULL)
           L[w] <- re$VLB
           iter[w] <- re$iter
           beta[[w]] <- re$params$factor_coefs_j
@@ -770,13 +774,13 @@ ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
         L_rept <- matrix(0, nrow = 1, ncol = r)
         if (parallel){
           Mres <- foreach::foreach(w=1:r)%dopar% {
-            re <- ZILNMVA(X,V, n.factors=w, cv_group=cvsample)
+            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=cvsample)
             re$VLB_rept
           }
           L_rept[1,(1:r)] <- Mres
         }else{
           for(w in 1:r){
-            re <- ZILNMVA(X,V, n.factors=w, cv_group=cvsample)
+            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=cvsample)
             L_rept[1,w] <- re$VLB_rept
           }
         }
@@ -784,7 +788,7 @@ ZIPPCAlnm <- function(X,V=NULL,rank=FALSE,parallel=TRUE){
       }
       cv <- which.max(colSums(matrix(unlist(All_rept),fold,r)))
 
-      re <- tryCatch({ZILNMVA(X,V,n.factors=cv)},error=function(e){NaN})
+      re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,parallel,cv_group=NULL)},error=function(e){NaN})
 
       out.list$cv <- cv
       out.list$VLB <- re$VLB

@@ -75,7 +75,7 @@
 ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
                       trace = FALSE, maxit = 100, parallel=TRUE){
 
-  ZILNMVA <- function(X,V,n.factors,trace,maxit,parallel,cv_group=NULL) {
+  ZILNMVA <- function(X,V,n.factors,trace,maxit,cv_group=NULL) {
 
     n.s<-nrow(X); n.f<-ncol(X);
     if(is.null(V)){Y <- 0
@@ -675,7 +675,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
   }
 
   if(rank==FALSE){
-    re <- ZILNMVA(X,V,n.factors,trace,maxit,parallel,cv_group=NULL)
+    re <- ZILNMVA(X,V,n.factors,trace,maxit,cv_group=NULL)
   }else{
     if (parallel){
       #cl <- parallel::makeCluster(detectCores(logical = FALSE))
@@ -705,7 +705,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
 
       if (parallel){
         Mres <- foreach::foreach(w=1:r) %dopar% {
-          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=NULL)
+          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL)
           re
         }
         for(w in 1:r){
@@ -726,7 +726,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }
       }else{
         for(w in 1:r){
-          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel=FALSE,cv_group=NULL)
+          re <- ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL)
           L[w] <- re$VLB
           iter[w] <- re$iter
           beta[[w]] <- re$params$factor_coefs_j
@@ -774,13 +774,13 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         L_rept <- matrix(0, nrow = 1, ncol = r)
         if (parallel){
           Mres <- foreach::foreach(w=1:r)%dopar% {
-            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,parallel,cv_group=cvsample)
+            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample)
             re$VLB_rept
           }
           L_rept[1,(1:r)] <- Mres
         }else{
           for(w in 1:r){
-            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,,parallel=FALSE,cv_group=cvsample)
+            re <- ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample)
             L_rept[1,w] <- re$VLB_rept
           }
         }
@@ -788,7 +788,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       }
       cv <- which.max(colSums(matrix(unlist(All_rept),fold,r)))
 
-      re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,parallel,cv_group=NULL)},error=function(e){NaN})
+      re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,cv_group=NULL)},error=function(e){NaN})
 
       out.list$cv <- cv
       out.list$VLB <- re$VLB

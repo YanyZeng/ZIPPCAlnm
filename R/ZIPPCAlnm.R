@@ -14,7 +14,7 @@
 #'
 #'
 #'  \item{VLB }{ variational lower bound of log likelihood}
-#'  \item{lvs}{list of latent variables}
+#'  \item{lvs}{list of latent variables
 #'  \itemize{
 #'    \item{pi }{ the probabilities of excess zeros}
 #'    \item{factor_scores }{ coordinates or factor scores in low-dimensional subspace}
@@ -68,7 +68,7 @@
 #' if(length(zerocol) >0 ){
 #'   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 #' }
-#' result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
+#' result <- ZIPPCAlnm::ZIPPCAlnm(X)
 
 #' @export
 

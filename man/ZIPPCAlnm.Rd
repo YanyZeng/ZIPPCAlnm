@@ -82,5 +82,5 @@ zerocol <- which(colSums(X)==0)
 if(length(zerocol) >0 ){
   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 }
-result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
+result <- ZIPPCAlnm::ZIPPCAlnm(X)
 }

@@ -222,6 +222,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           if(trace) cat("Model parameters beta updated","\n")
           new.factor_coefs_j <- matrix(q$par,n.f,n.factors);
+          new.factor_coefs_j <- scale(new.factor_coefs_j)
           if(q$convergence != 0) { if(trace) cat("Optimization of beta did not converge on iteration step ", iter,"\n") }
         }
       }
@@ -508,6 +509,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           if(trace) cat("Model parameters beta updated","\n")
           new.factor_coefs_j <- matrix(q$par,n.f,n.factors);
+          new.factor_coefs_j <- scale(new.factor_coefs_j)
           if(q$convergence != 0) { if(trace) cat("Optimization of beta did not converge on iteration step ", iter,"\n") }
         }
       }

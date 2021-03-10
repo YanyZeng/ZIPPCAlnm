@@ -726,7 +726,8 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           Q3[[w]] <- Mres[[w]]$Q3
           pi[[w]] <- Mres[[w]]$lvs$pi
           G_w[w] <- w*p-w^2+2*w*n
-          bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
+             # bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
+          bic[w] <- -2*L[w]+(log(n))*G_w[w]
         }
       }else{
         for(w in 1:r){
@@ -744,7 +745,8 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           Q3[[w]] <- re$Q3
           pi[[w]] <- re$lvs$pi
           G_w[w] <- w*p-w^2+2*w*n
-          bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
+              # bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
+          bic[w] <- -2*L[w]+(log(n))*G_w[w]
         }
       }
       out.list$bic <- which.min(bic)

@@ -649,11 +649,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
     sum <- exp.mat/(rowSums(exp.mat))
     sum2 <- exp(ll)*I(cvsample==0)/rowSums(exp(ll)*I(cvsample==0))
 
-    factor_scores <- scale(new.factor_scores)
-    ll <- matrix(factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(gamma,n.s,n.f,byrow=TRUE)*Y+factor_scores %*% t(factor_coefs_j)
-    sum3 <- exp(ll)*I(cvsample==0)/rowSums(exp(ll)*I(cvsample==0))
-
-
     if(iter > 99){
       print("ZILNMVA Not converging!")
     }
@@ -671,7 +666,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
     out.list$params$factor_coefs_0 <- factor_coefs_0
     out.list$Q <- sum
     out.list$Q2 <- sum2
-    out.list$Q3 <- sum3
 
     return(out.list)
   }
@@ -696,7 +690,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       f <- list()
       Q <- list()
       Q2 <- list()
-      Q3 <- list()
       pi <- list()
       eta <- list()
       sigma <- list()
@@ -721,7 +714,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           sigma[[w]] <- Mres[[w]]$lvs$sigma
           Q[[w]] <- Mres[[w]]$Q
           Q2[[w]] <- Mres[[w]]$Q2
-          Q3[[w]] <- Mres[[w]]$Q3
           pi[[w]] <- Mres[[w]]$lvs$pi
           G_w[w] <- w*p-w^2+2*w*n
           bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
@@ -740,7 +732,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           f[[w]] <- re$lvs$factor_scores
           Q[[w]] <- re$Q
           Q2[[w]] <- re$Q2
-          Q3[[w]] <- re$Q3
           pi[[w]] <- re$lvs$pi
           G_w[w] <- w*p-w^2+2*w*n
           bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
@@ -759,7 +750,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       out.list$params$gamma <- gamma[[(which.min(bic))]]
       out.list$Q <- Q[[(which.min(bic))]]
       out.list$Q2 <- Q2[[(which.min(bic))]]
-      out.list$Q3 <- Q3[[(which.min(bic))]]
     }
     if(rank=="CV"){
 
@@ -806,7 +796,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       out.list$lvs$pi <-  re$lvs$pi
       out.list$Q <-re$Q
       out.list$Q2 <-re$Q2
-      out.list$Q3 <-re$Q3
 
     }
     if (parallel){

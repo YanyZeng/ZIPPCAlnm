@@ -164,7 +164,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           if(trace) cat("Variational parameters m updated","\n")
           new.factor_scores <- matrix(q$par,n.s,n.factors);
-          #new.factor_scores <- (t(t(new.factor_scores)/sqrt(colSums(new.factor_scores^2)))*sqrt(n.s))
+          new.factor_scores <- scale(new.factor_scores)
           if(q$convergence != 0) { if(trace) cat("Optimization of m did not converge on iteration step ", iter,"\n") }
         }
       }
@@ -450,7 +450,6 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           if(trace) cat("Variational parameters m updated","\n")
           new.factor_scores <- matrix(q$par,n.s,n.factors);
-          new.factor_scores <- (t(t(new.factor_scores)/sqrt(colSums(new.factor_scores^2)))*sqrt(n.s))
           if(q$convergence != 0) { if(trace) cat("Optimization of m did not converge on iteration step ", iter,"\n") }
         }
       }

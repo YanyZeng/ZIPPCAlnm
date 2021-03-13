@@ -72,10 +72,6 @@
 
 #' @export
 
-library(parallel)
-library(doParallel)
-library(foreach)
-
 ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
                       trace = FALSE, maxit = 100, parallel=TRUE){
   
@@ -332,18 +328,32 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       
       ## Take values of VLB to define stopping rule
       q <- list(value = VLB_ini(c(new.factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,g=new.gamma,s=new.sigma))
-      new.VLB <- q$value
+      new.VLB <-  tryCatch({q$value},error=function(e){NaN})
       diff=abs(new.VLB-cur.VLB)
       ratio <- abs(new.VLB/cur.VLB);
       if(trace) cat("New VLB:", new.VLB,"cur VLB:", cur.VLB, "Ratio of VLB", ratio, ". Difference in VLB:",diff,"\n")
       cur.VLB <- new.VLB
       
+      if(is.na(cur.VLB)){
+        sigma <- new.sigma <- matrix(1,n.s,n.factors)
+        factor_coefs_0 <-  new.factor_coefs_0 <-  rep(1,n.f)
+        gamma <-  new.gamma <-  rep(1,n.f)
+        X.rc <- scale(log(X+0.05),scale = T,center = T)
+        re <- svd(X.rc,n.factors,n.factors)
+        factor_coefs_j <- new.factor_coefs_j <- re$v
+        if(n.factors==1){
+          factor_scores <- new.factor_scores <- re$u * (re$d[1])
+        }else{factor_scores <- new.factor_scores <- re$u %*% diag(re$d[1:n.factors])}
+        iter <- 101
+        
+      }else{
       factor_coefs_0 <-new.factor_coefs_0
       factor_coefs_j <- new.factor_coefs_j
       factor_scores <- new.factor_scores
       sigma <- new.sigma
       gamma <- new.gamma
       iter <- iter + 1
+      }
     }
     
     ###VA iteration
@@ -827,7 +837,9 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           }
           All_rept <- rbind(All_rept, L_rept)
         }
+        #cv <- tryCatch({which.max(colMeans(matrix(unlist(All_rept),fold,r),na=T))},error=function(e){0})
         cv <- tryCatch({which.max(colSums(matrix(unlist(All_rept),fold,r)))},error=function(e){0})
+        cv <- ifelse(length(cv)==0,0,cv)
       }
       
       re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,cv_group=NULL)},error=function(e){NaN})

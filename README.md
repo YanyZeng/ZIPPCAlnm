@@ -13,7 +13,8 @@ Zero-Inflated Probabilistic PCA framework with logistical normal multinomial dis
 
 # Usage
 ```r
-ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
+ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,
+                      trace = FALSE, maxit = 100, parallel=TRUE,sd.errors=FALSE,level=0.95)
 ```
 * X: count matrix of observations.
 * V: vector of the sample covariate.
@@ -22,7 +23,8 @@ ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, paralle
 * trace: logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.
 * maxit: maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.
 * parallel: logical, if TRUE, use parallel toolbox to accelerate.
-
+* sd.errors: logical, defaults to \code{FALSE}. if \code{TRUE} the sandwich estimators will be calculated.
+* level: the confidence level of variational confidence interval. Defaults to 0.95.
 
 # Examples
 ```r
@@ -63,5 +65,5 @@ zerocol <- which(colSums(X)==0)
 if(length(zerocol) >0 ){
   X <- X[,-zerocol];Qn <- Qn[,-zerocol];Qn_z <- Qn_z[,-zerocol];
 }
-result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
+result <- ZIPPCAlnm::ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100,      parallel=TRUE,sd.errors=FALSE,level=0.95)
  ```

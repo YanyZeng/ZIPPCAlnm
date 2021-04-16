@@ -12,5 +12,5 @@ Encoding: UTF-8
 URL: https://github.com/YanyZeng/ZIPPCAlnm.git
 Repository: CRAN
 Publication: 
-RoxygenNote: 7.1.0
-Depends: MASS,parallel,foreach,doParallel
+RoxygenNote: 7.1.1
+Depends: MASS,Matrix,parallel,foreach,doParallel

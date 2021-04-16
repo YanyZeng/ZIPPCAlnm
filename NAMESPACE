@@ -1,8 +1,9 @@
 #exportPattern("^[[:alpha:]]+")
+
 export(ZIPPCAlnm)
-importFrom(stats,optim,na.omit)
+importFrom(stats,optim,na.omit,qnorm)
 import(MASS)
+import(Matrix)
 import(parallel)
 import(foreach)
 import(doParallel)
-

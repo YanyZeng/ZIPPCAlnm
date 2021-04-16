@@ -4,7 +4,17 @@
 \alias{ZIPPCAlnm}
 \title{ZIPPCAlnm}
 \usage{
-ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, parallel=TRUE)
+ZIPPCAlnm(
+  X,
+  V = NULL,
+  n.factors = 2,
+  rank = FALSE,
+  trace = FALSE,
+  maxit = 100,
+  parallel = TRUE,
+  sd.errors = FALSE,
+  level = 0.95
+)
 }
 \arguments{
 \item{X}{count matrix of observations.}
@@ -20,8 +30,11 @@ ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, paralle
 \item{maxit}{maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.}
 
 \item{parallel}{logical, if TRUE, use parallel toolbox to accelerate.}
-}
 
+\item{sd.errors}{logical, defaults to \code{FALSE}. if \code{TRUE} the sandwich estimators will be calculated.}
+
+\item{level}{the confidence level of variational confidence interval. Defaults to 0.95.}
+}
 \value{
 \item{VLB }{ variational lower bound of log likelihood}
  \item{lvs}{list of latent variables
@@ -38,6 +51,8 @@ ZIPPCAlnm(X, V=NULL, n.factors=2, rank=FALSE,trace = FALSE, maxit = 100, paralle
  \item{Q }{ the underlying composition of microbiome data}
  \item{bic}{ the number of the rank selection, chosen by BIC type information criterion}
  \item{cv}{ the number of the rank selection, chosen by cross-validation}
+ \item{sd}{ standard deviation of the sandwich estimators}
+ \item{conf}{ variational confidence intervals of model parameters}
 }
 \description{
 Zero-Inflated Probabilistic PCA framework with logistical normal multinomial distribution (ZIPPCA-LNM),

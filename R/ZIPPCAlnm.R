@@ -9,9 +9,10 @@
 #' @param trace logical, defaults to \code{FALSE}. if \code{TRUE} each current iteration step information will be printed.
 #' @param maxit maximum number of iterations within \code{optim} and \code{constrOptim} function, defaults to 100.
 #' @param parallel logical, if TRUE, use parallel toolbox to accelerate.
+#' @param sd.errors logical, defaults to \code{FALSE}. if \code{TRUE} the sandwich estimators will be calculated.
+#' @param level the confidence level of variational confidence interval. Defaults to 0.95.
 
 #' @return
-#'
 #'
 #'  \item{VLB }{ variational lower bound of log likelihood}
 #'  \item{lvs}{list of latent variables
@@ -28,6 +29,8 @@
 #'  \item{Q }{ the underlying composition of microbiome data}
 #'  \item{bic}{ the number of the rank selection, chosen by BIC type information criterion}
 #'  \item{cv}{ the number of the rank selection, chosen by cross-validation}
+#'  \item{sd}{ standard deviation of the sandwich estimators}
+#'  \item{conf}{ variational confidence intervals of model parameters}
 
 #' @examples
 #' n.n = 50
@@ -73,10 +76,10 @@
 #' @export
 
 ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
-                      trace = FALSE, maxit = 100, parallel=TRUE){
-  
-  ZILNMVA <- function(X,V,n.factors,trace,maxit,cv_group=NULL) {
-    
+                      trace = FALSE, maxit = 100, parallel=TRUE,sd.errors=FALSE,level=0.95){
+
+  ZILNMVA <- function(X,V,n.factors,trace,maxit,cv_group=NULL,sd.errors,level) {
+
     n.s<-nrow(X); n.f<-ncol(X);
     if(is.null(V)){Y <- 0
     }else if(is.numeric(V)){Y <- V
@@ -89,7 +92,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       cvsample <- cv_group
     }
     out.list <- list()
-    
+
     ### Initialization 1
     pzero.col <- apply(X, 2, function(x) {sum(x==0)/n.s})
     z.hat <- pi <- new.pi <- t(ifelse(t(X)==0, pzero.col, 0))
@@ -97,14 +100,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
     sigma <- new.sigma <- matrix(1,n.s,n.factors)
     factor_coefs_0 <-  new.factor_coefs_0 <-  rep(1,n.f)
     gamma <-  new.gamma <-  rep(1,n.f)
-    
+
     X.rc <- scale(log(X+0.05),scale = T,center = T)
     re <- svd(X.rc,n.factors,n.factors)
     factor_coefs_j <- new.factor_coefs_j <- re$v
     if(n.factors==1){
       factor_scores <- new.factor_scores <- re$u * (re$d[1])
     }else{factor_scores <- new.factor_scores <- re$u %*% diag(re$d[1:n.factors])}
-    
+
     ### Initialization 2
     cur.VLB <- -1e6; iter <- 1; ratio <- 10; diff=1e5;eps = 1e-4;max.iter = 100;
     b.cur.logfunc <- -1e6;b0.cur.logfunc <- -1e6;f.cur.logfunc <- -1e6;ga.cur.logfunc <- -1e6
@@ -117,7 +120,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*ll*I(cvsample==0)
         y2 <- -X*log(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
@@ -125,7 +128,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         y <- sum(y1)+sum(y2)+sum(sapply(1:n.s,fun2))
         return(y)
       }
-      
+
       ###optim f
       f_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -133,7 +136,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         lf <- new.factor_scores %*% t(new.factor_coefs_j)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*lf*I(cvsample==0)
@@ -148,7 +151,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         sum <- exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0)/(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0)))
         fun2 <- function(i) { -new.factor_scores[i,]+((X*I(cvsample==0))[i,])%*%new.factor_coefs_j-(M[i]*sum[i,])%*%new.factor_coefs_j}
@@ -168,7 +171,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of m did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       ###update sigma
       beta2 <- new.factor_coefs_j^2
       ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
@@ -179,7 +182,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           new.sigma[i,] <- 1/(1+(diag(diag(apply((sum)[i,]*beta2,2,sum)))))
         }}
-      
+
       ###update beta
       beta_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -187,13 +190,13 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         lf <- new.factor_scores %*% t(new.factor_coefs_j)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*lf*I(cvsample==0)
         y2 <- -X*log(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
         y <- sum(y1)+sum(y2)
-        
+
         return(y)
       }
       beta_grad_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
@@ -202,18 +205,18 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         b3 <- NULL
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         sum <- M*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))/(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0)))
         for(p in 1:n.factors){
           b3 <- c(b3,(sweep((X*I(cvsample==0)),1,new.factor_scores[,p],"*") -sweep((new.sigma[,p]%*%t(new.factor_coefs_j[,p])),1,new.factor_scores[,p],"+") * sum))
         }
-        
+
         b3 <- matrix(b3,n.s,n.f*n.factors)
         return(c(colSums(b3)))
       }
-      
+
       q <- try(optim(c(factor_coefs_j), x=new.factor_coefs_0,f=new.factor_scores,s=new.sigma,g=new.gamma, method = "BFGS", fn = beta_f_ini, gr = beta_grad_f_ini, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.factor_coefs_j <- factor_coefs_j;
       }else{
@@ -226,7 +229,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of beta did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       ###update beta0
       b0_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -234,7 +237,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         lab <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*lab*I(cvsample==0)
@@ -248,12 +251,12 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         grad <- X*I(cvsample==0)-M*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))/(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0)))
         return(c(colSums(grad)))
       }
-      
+
       q <- try(optim(c(factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma,g=new.gamma,method = "BFGS", fn = b0_f_ini, gr = b0_grad_f_ini, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.factor_coefs_0 <- factor_coefs_0
       }else{
@@ -266,7 +269,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of beta0 did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       ###update gamma
       gam_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -274,14 +277,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         lab <- matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
-        
+
         y1 <- X*lab*I(cvsample==0)
         y2 <- -X*log(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
         y <- sum(y1)+sum(y2)
-        
+
         return(y)
       }
       gam_grad_f_ini <- function(x,b=NULL,f=NULL,s=NULL,g=NULL) {
@@ -290,13 +293,13 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.factor_scores <- matrix(f,n.s,n.factors)
         new.sigma <- matrix(s,n.s,n.factors)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         grad <- X*I(cvsample==0)*Y-M*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))/(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0)))*Y
-        
+
         return(c(colSums(grad)))
       }
-      
+
       q <- try(optim(c(gamma),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma,x=new.factor_coefs_0,method = "BFGS", fn = gam_f_ini, gr = gam_grad_f_ini, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.gamma <- gamma
       }else{
@@ -309,23 +312,23 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of gamma did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       q1 <- list(value = beta_f_ini(c(new.factor_coefs_j),x=new.factor_coefs_0,f=new.factor_scores,g=new.gamma,s=new.sigma))
       b.new.logfunc <- q1$value
       b.cur.logfunc <- b.new.logfunc
-      
+
       q2 <- list(value = f_f_ini(c(new.factor_scores),x=new.factor_coefs_0, b=new.factor_coefs_j,g=new.gamma,s=new.sigma))
       new.f.cur.logfunc <- q2$value
       f.cur.logfunc <- new.f.cur.logfunc
-      
+
       q3 <- list(value = b0_f_ini(c(new.factor_coefs_0), f=new.factor_scores,b=new.factor_coefs_j,g=new.gamma,s=new.sigma))
       new.b0.cur.logfunc <- q3$value
       b0.cur.logfunc <- new.b0.cur.logfunc
-      
+
       q4 <- list(value = gam_f_ini(c(new.gamma), f=new.factor_scores,b=new.factor_coefs_j,s=new.sigma,x=new.factor_coefs_0))
       new.ga.cur.logfunc <- q4$value
       ga.cur.logfunc <- new.ga.cur.logfunc
-      
+
       ## Take values of VLB to define stopping rule
       q <- list(value = VLB_ini(c(new.factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,g=new.gamma,s=new.sigma))
       new.VLB <-  tryCatch({q$value},error=function(e){NaN})
@@ -333,7 +336,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       ratio <- abs(new.VLB/cur.VLB);
       if(trace) cat("New VLB:", new.VLB,"cur VLB:", cur.VLB, "Ratio of VLB", ratio, ". Difference in VLB:",diff,"\n")
       cur.VLB <- new.VLB
-      
+
       if(is.na(cur.VLB)){
         sigma <- new.sigma <- matrix(1,n.s,n.factors)
         factor_coefs_0 <-  new.factor_coefs_0 <-  rep(1,n.f)
@@ -345,21 +348,21 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           factor_scores <- new.factor_scores <- re$u * (re$d[1])
         }else{factor_scores <- new.factor_scores <- re$u %*% diag(re$d[1:n.factors])}
         iter <- 101
-        
+
       }else{
-      factor_coefs_0 <-new.factor_coefs_0
-      factor_coefs_j <- new.factor_coefs_j
-      factor_scores <- new.factor_scores
-      sigma <- new.sigma
-      gamma <- new.gamma
-      iter <- iter + 1
+        factor_coefs_0 <-new.factor_coefs_0
+        factor_coefs_j <- new.factor_coefs_j
+        factor_scores <- new.factor_scores
+        sigma <- new.sigma
+        gamma <- new.gamma
+        iter <- iter + 1
       }
     }
-    
+
     ###VA iteration
     cur.VLB <- -1e6; iter <- 1; ratio <- 10; diff=1e5;eps = 1e-4;max.iter = 100;
     b.cur.logfunc <- -1e6;b0.cur.logfunc <- -1e6;f.cur.logfunc <- -1e6;ga.cur.logfunc <- -1e6
-    
+
     while((diff> eps*(abs(cur.VLB)+eps)) && iter <= max.iter) {
       if(trace) cat("Iteration:", iter, "\n")
       ## VLB
@@ -371,7 +374,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.pi <- matrix(pi,n.s,n.f)
         new.eta <- e
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*ll*I(cvsample==0)
         y2 <- -X*log(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
@@ -385,7 +388,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         y <- sum(y1)+sum(y2)+sum(sapply(1:n.s,fun2))+sum(sapply(1:n.s,fun3))
         return(y)
       }
-      
+
       ## VLB_rept
       VLB_rept <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,e=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -395,7 +398,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.pi <- matrix(pi,n.s,n.f)
         new.eta <- e
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*ll*I(cvsample==1)
         y2 <- -X*log(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==1)
@@ -409,8 +412,8 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         y <- sum(y1)+sum(y2)+sum(sapply(1:n.s,fun2))+sum(sapply(1:n.s,fun3))
         return(y)
       }
-      
-      
+
+
       ###optim pi
       ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
       alp <- log(M/(rowSums((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))))))
@@ -421,7 +424,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.pi[i,] <- new.eta/(new.eta+(1-new.eta)*sum1[i,]+1e-8)
       }
       new.pi[X!=0]=0
-      
+
       ###optim f
       f_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -430,14 +433,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         lf <- new.factor_scores %*% t(new.factor_coefs_j)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*lf*I(cvsample==0)
         y2 <- -X*log(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
         fun2 <- function(i) { 0.5 * (- sum(new.factor_scores[i,]^2))}
         y <- sum(y1)+sum(y2)+sum(sapply(1:n.s,fun2))
-        
+
         return(y)
       }
       f_grad_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
@@ -447,14 +450,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         sum <- I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))/(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0)))
         fun2 <- function(i) { -new.factor_scores[i,]+((X*I(cvsample==0))[i,])%*%new.factor_coefs_j-(M[i]*sum[i,])%*%new.factor_coefs_j}
         f_grad <- t(sapply(1:n.s,fun2))
         return(c(f_grad))
       }
-      
+
       q <- try(optim(c(factor_scores), x=new.factor_coefs_0,b=new.factor_coefs_j,s=new.sigma,pi=new.pi,g=new.gamma, method = "BFGS", fn = f_f, gr = f_grad_f, control = list(trace = 0,  fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.factor_scores <- factor_scores;
       }else{
@@ -467,7 +470,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of m did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       ###update sigma
       beta2 <- new.factor_coefs_j^2
       ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
@@ -478,7 +481,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }else{
           new.sigma[i,] <- 1/(1+(diag(diag(apply((sum)[i,]*beta2,2,sum)))))
         }}
-      
+
       ###update beta
       beta_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -487,10 +490,10 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         lf <- new.factor_scores %*% t(new.factor_coefs_j)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
-        
+
         y1 <- X*lf*I(cvsample==0)
         y2 <- -X*log(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
         y <- sum(y1)+sum(y2)
@@ -503,7 +506,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         b3 <- NULL
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         sum <- M*I((1-new.pi)>0.5)*((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0))/(rowSums(I((1-new.pi)>0.5)*((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0))))
@@ -513,7 +516,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         b3 <- matrix(b3,n.s,n.f*n.factors)
         return(c(colSums(b3)))
       }
-      
+
       q <- try(optim(c(factor_coefs_j), x=new.factor_coefs_0,f=new.factor_scores,s=new.sigma,pi=new.pi,  g=new.gamma,method = "BFGS", fn = beta_f, gr = beta_grad_f, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.factor_coefs_j <- factor_coefs_j;
       }else{
@@ -526,7 +529,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of beta did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       ###update gamma
       b0_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
         new.factor_coefs_0 <- x[1:n.f];
@@ -535,7 +538,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         lab <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         y1 <- X*lab*I(cvsample==0)
@@ -550,12 +553,12 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         grad <- X*I(cvsample==0)-M*I((1-new.pi)>0.5)*((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0))/(rowSums(I((1-new.pi)>0.5)*((exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))*I(cvsample==0))))
         return(c(colSums(grad)))
       }
-      
+
       q <- try(optim(c(factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma, pi=new.pi,g=new.gamma,method = "BFGS", fn = b0_f, gr = b0_grad_f, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.factor_coefs_0 <- factor_coefs_0
       }else{
@@ -576,15 +579,15 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         lab <- matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
-        
+
         y1 <- X*lab*I(cvsample==0)
         y2 <- -X*log(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2)))))*I(cvsample==0)
-        
+
         y <- sum(y1)+sum(y2)
-        
+
         return(y)
       }
       ga_grad_f <- function(x,b=NULL,f=NULL,s=NULL,pi=NULL,g=NULL) {
@@ -594,14 +597,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         new.sigma <- matrix(s,n.s,n.factors)
         new.pi <- matrix(pi,n.s,n.f)
         new.gamma <- g[1:n.f];
-        
+
         ll <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(new.gamma,n.s,n.f,byrow=TRUE)*Y+new.factor_scores %*% t(new.factor_coefs_j)
         grad <- X*I(cvsample==0)*Y-M*I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))/(rowSums(I((1-new.pi)>0.5)*(exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))*I(cvsample==0))))*Y
-        
+
         return(c(colSums(grad)))
       }
-      
-      
+
+
       q <- try(optim(c(gamma),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma, pi=new.pi,x=new.factor_coefs_0, method = "BFGS", fn = ga_f, gr = ga_grad_f, control = list(trace = 0, fnscale = -1, maxit = maxit)), silent = TRUE)
       if("try-error" %in% class(q)){ new.gamma <- gamma
       }else{
@@ -614,25 +617,25 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           if(q$convergence != 0) { if(trace) cat("Optimization of gamma did not converge on iteration step ", iter,"\n") }
         }
       }
-      
+
       new.eta <-  apply(I(new.pi>0.5)*new.pi*I(cvsample==0), 2, function(x) {sum(x)/n.s})
-      
+
       q1 <- list(value = beta_f(c(new.factor_coefs_j),x=new.factor_coefs_0,f=new.factor_scores,s=new.sigma,pi=new.pi,g=new.gamma))
       b.new.logfunc <- q1$value
       b.cur.logfunc <- b.new.logfunc
-      
+
       q2 <- list(value = f_f(c(new.factor_scores),x=new.factor_coefs_0, b=new.factor_coefs_j,s=new.sigma,pi=new.pi,g=new.gamma))
       new.f.cur.logfunc <- q2$value
       f.cur.logfunc <- new.f.cur.logfunc
-      
+
       q3 <- list(value = b0_f(c(new.factor_coefs_0), f=new.factor_scores,b=new.factor_coefs_j,s=new.sigma,pi=new.pi,g=new.gamma))
       new.b0.cur.logfunc <- q3$value
       b0.cur.logfunc <- new.b0.cur.logfunc
-      
+
       q4 <- list(value = ga_f(c(new.gamma), f=new.factor_scores,b=new.factor_coefs_j,s=new.sigma,pi=new.pi,x=new.factor_coefs_0))
       new.ga.cur.logfunc <- q4$value
       ga.cur.logfunc <- new.ga.cur.logfunc
-      
+
       ## Take values of VLB to define stopping rule
       q <- list(value = VLB(c(new.factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma,pi=new.pi,e=new.eta,g=new.gamma))
       new.VLB <- q$value
@@ -640,7 +643,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       ratio <- abs(new.VLB/cur.VLB);
       if(trace) cat("New VLB:", new.VLB,"cur VLB:", cur.VLB, "Ratio of VLB", ratio, ". Difference in VLB:",diff,"\n")
       cur.VLB <- new.VLB
-      
+
       if(!is.null(cvsample)){
         q <- list(value = VLB_rept(c(new.factor_coefs_0),b=new.factor_coefs_j,f=new.factor_scores,s=new.sigma,pi=new.pi,e=new.eta,g=new.gamma))
         cur.VLB_rept <- q$value
@@ -654,18 +657,18 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       gamma <- new.gamma
       iter <- iter + 1
     }
-    
+
     ll <- matrix(factor_coefs_0,n.s,n.f,byrow=TRUE)+matrix(gamma,n.s,n.f,byrow=TRUE)*Y+factor_scores %*% t(factor_coefs_j)
     exp.mat <- exp(ll+0.5*(sigma) %*% t(factor_coefs_j^2))*I(cvsample==0)
     sum <- exp.mat/(rowSums(exp.mat))
     sum2 <- exp(ll)*I(cvsample==0)/rowSums(exp(ll)*I(cvsample==0))
     mu_z <- (1-new.pi)*exp.mat
     mu <- exp.mat
-    
+
     if(iter > 99){
       print("ZILNMVA Not converging!")
     }
-    
+
     ## print the output
     out.list$VLB <- cur.VLB
     if(!is.null(cvsample)){out.list$VLB_rept <- cur.VLB_rept}
@@ -681,12 +684,291 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
     out.list$Q2 <- sum2
     out.list$mu <- mu
     out.list$muz <- mu_z
-    
+
+    sd_sandwich <- function(out=NULL){
+
+      out.list <- list()
+
+      new.factor_coefs_j <- out$params$factor_coefs_j
+      new.factor_coefs_0 <- out$params$factor_coefs_0
+      new.eta <- out$params$eta
+      new.gamma <- out$params$gamma
+      new.sigma <- out$lvs$sigma
+      new.factor_scores <- out$lvs$factor_scores
+      new.pi <- out$lvs$pi
+
+      n.s<-nrow(X); n.f<-ncol(X);
+      if(is.null(V)){Y <- 0
+      }else if(is.numeric(V)){Y <- V
+      }else{
+        Y <- as.numeric(as.factor(V))-1}
+      M <- rowSums(X)
+
+      ##########
+      lb <- matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+new.factor_scores %*% t(new.factor_coefs_j)
+      alpha <- log(M/(rowSums((1-new.pi)*(exp(lb+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))))))
+      ll <- matrix(alpha,n.s,n.f)+matrix(new.factor_coefs_0,n.s,n.f,byrow=TRUE)+new.factor_scores %*% t(new.factor_coefs_j)
+      wj <- exp(ll+0.5*(new.sigma) %*% t(new.factor_coefs_j^2))
+
+      q <- matrix(0,n.s,n.f,byrow = T)
+      for(i in 1:n.s){
+        den1 <- ((1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,]))
+        q[i,] <- (1-new.eta)*exp(-wj[i,])*den1/(new.eta+(1-new.eta)*exp(-wj[i,]))^2
+      }
+      t <- q*wj
+      t <- t+abs(min(t))
+      wt <- ifelse(X>0,wj,t)
+
+      ##D_beta0
+      fun1 <- function(i) {
+        MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+      }
+      H_inverse <- rowMeans(sapply(1:n.s,fun1))
+
+      D_beta0beta0 <- matrix(-H_inverse,n.f,n.f)
+
+      ##D_beta0beta
+      #fun2 <- function(i) {(as.matrix(Matrix::bdiag((apply(array(sweep(new.sigma[i,]%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),c(n.factors,1,n.f)),3,Matrix::bdiag))))) }
+      sw <- matrix(0,n.s,n.f,byrow = T)
+      for(i in 1:n.s){
+        den <- (1-new.eta)*exp(-wj[i,])/(new.eta+(1-new.eta)*exp(-wj[i,]))
+        sw[i,] <- den*(wj[i,])
+      }
+
+      fun2 <-function(i) {
+
+        H_ini <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                        (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+
+        if(n.factors==1){
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(new.sigma[i,]%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }else{
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(diag(new.sigma[i,])%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }
+        ##sweep(new.factor_coefs_j,1,sw[i,],"*") for n.factors=1
+        xwj_sw <- ifelse(X>0,-(X-wj),sw)
+        wj_sw <- ifelse(X>0,wj,sw)
+        if(n.factors==1){
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(xwj_sw[i,],diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(sweep(new.factor_coefs_j,1,wj_sw[i,],"*"))
+
+        }else{
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(xwj_sw[i,],diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(matrix(apply(sweep(new.factor_coefs_j,1,t(wj_sw[i,]),"*"),1,diag),n.f*n.factors,n.factors,byrow = T))
+        }
+
+        -H_ini%*%t(Ei)+H_ini%*%UB
+      }
+
+      D_beta0beta <- matrix(rowMeans(sapply(1:n.s,fun2)),n.f,n.f*n.factors)
+
+      ##D_beta0eta
+      fun3 <- function(i) {
+
+        # H_in1 <- MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,]))%*%
+        #                      (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,])))
+        #
+        H_in1 <- MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                         (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+
+        den1 <- ((1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,]))
+        H_in1%*%diag(c(MASS::ginv((1-new.eta)*(den1)))*I(X[i,]==0))
+        #H_in1%*%diag(c(MASS::ginv((1-new.eta)*((1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,])))))
+
+      }
+      H_inverse_a <- rowMeans(sapply(1:n.s,fun3))
+      D_beta0eta <- matrix(H_inverse_a,n.f,n.f)
+
+      ##D_etaeta
+      fun4 <- function(i) {
+
+        # H_in1 <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,]))%*%
+        #                     (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,])))
+        #
+        H_in1 <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                        (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+
+        den1 <- (1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,])
+        d_a1 <- diag(c(MASS::ginv((1-new.eta)*den1))*I(X[i,]==0))
+        den <- (new.eta+(1-new.eta)*exp(-wj[i,]))^2
+        d_g <- diag(c((1-exp(-wj[i,]))^2/den)*I(X[i,]==0))
+        (-d_g+d_a1%*%(diag((t[i,]))-H_in1)%*%d_a1)
+
+        # den1 <- (1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,])
+        # #den1[den1<0] <- 0
+        # d_a1 <- diag(c(MASS::ginv((1-new.eta)*den1)))
+        # den <- (new.eta+(1-new.eta)*exp(-wj[i,]))^2
+        # d_g <- diag(c((1-exp(-wj[i,]))^2/den))
+        # (-d_g+d_a1%*%(diag((t[i,]))-H_in1)%*%d_a1)
+
+      }
+
+      D_etaeta <- matrix(rowMeans(sapply(1:n.s,fun4)),n.f,n.f)
+
+      ##D_betaeta
+      fun5 <- function(i) {
+
+        # H_in1 <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,]))%*%
+        #                     (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(t[i,])-t[i,]%*%t(t[i,])/sum(t[i,])))
+        #
+
+        H_in1 <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                        (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+
+        if(n.factors==1){
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(new.sigma[i,]%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }else{
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(diag(new.sigma[i,])%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }
+
+        den1 <- (1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,])
+        d_a1 <- diag(c(MASS::ginv((1-new.eta)*den1))*I(X[i,]==0))
+
+        if(n.factors==1){
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(sw[i,]*I(X[i,]==0),diag(1,n.factors)))
+          +new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(sweep(new.factor_coefs_j,1,sw[i,]*I(X[i,]==0),"*"))
+
+        }else{
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(sw[i,]*I(X[i,]==0),diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(matrix(apply(sweep(new.factor_coefs_j,1,t(sw[i,]*I(X[i,]==0)),"*"),1,diag),n.f*n.factors,n.factors,byrow = T))
+        }
+
+        # den1 <- (1-wj[i,])*new.eta+(1-new.eta)*exp(-wj[i,])
+        # den1[den1<0] <- 0
+        # d_a1 <- diag(c(MASS::ginv((1-new.eta)*den1)))
+        #
+        # if(n.factors==1){
+        #   UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(sw[i,],diag(1,n.factors)))
+        #   +new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(sweep(new.factor_coefs_j,1,sw[i,],"*"))
+        #
+        # }else{
+        #   UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(sw[i,],diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(matrix(apply(sweep(new.factor_coefs_j,1,t(sw[i,]),"*"),1,diag),n.f*n.factors,n.factors,byrow = T))
+        # }
+        Ei%*%H_in1%*%d_a1-t(UB)%*%H_in1%*%d_a1
+      }
+
+      D_betaeta <- matrix(rowMeans(sapply(1:n.s,fun5)),n.f*n.factors,n.f)
+
+
+      ##D_betabeta
+      fun6 <- function(i) {
+
+        H_in1 <-MASS::ginv(MASS::ginv(diag(1,n.f)+(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,]))%*%
+                                        (new.factor_coefs_j%*%diag(1,n.factors)%*%t(new.factor_coefs_j)+0.5*new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(new.factor_coefs_j^2)))%*%(diag(wt[i,])-wt[i,]%*%t(wt[i,])/sum(wt[i,])))
+
+        d_uw <- diag(ifelse(X[i,]>0,wj[i,],sw[i,]))
+
+        if(n.factors==1){
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(new.sigma[i,]%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }else{
+          Ei <- as.matrix(Matrix::bdiag(apply(sweep(diag(new.sigma[i,])%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+"),2,Matrix::bdiag)))
+        }
+        xwj_sw <- ifelse(X>0,-(X-wj),sw)
+        wj_sw <- ifelse(X>0,wj,sw)
+        if(n.factors==1){
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(xwj_sw[i,],diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(sweep(new.factor_coefs_j,1,wj_sw[i,],"*"))
+        }else{
+          UB <- new.factor_coefs_j%*%diag(1,n.factors)%*%t(kronecker(xwj_sw[i,],diag(1,n.factors)))+new.factor_coefs_j^2%*%diag((new.sigma[i,]^4),n.factors)%*%t(matrix(apply(sweep(new.factor_coefs_j,1,t(wj_sw[i,]),"*"),1,diag),n.f*n.factors,n.factors,byrow = T))
+        }
+
+        xwj_sw <- ifelse(X>0,(X-wj),sw)
+        xwj_sw2 <- ifelse(X>0,(X-wj),-sw)
+        wj_sw <- ifelse(X>0,wj,sw)
+        wj_sw2 <- ifelse(X>0,wj,-sw)
+
+        if(n.factors==1){
+          UU <- kronecker(xwj_sw[i,],diag(1,n.factors))%*%diag(1,n.factors)%*%t(kronecker(xwj_sw2[i,],diag(1,n.factors)))+2*sweep(new.factor_coefs_j,1,wj_sw[i,],"*")%*%diag((new.sigma[i,]^4),n.factors)%*%t(sweep(new.factor_coefs_j,1,wj_sw2[i,],"*"))
+
+        }else{
+          UU <- +kronecker(xwj_sw[i,],diag(1,n.factors))%*%diag(1,n.factors)%*%t(kronecker(xwj_sw2[i,],diag(1,n.factors)))+2*matrix(apply(sweep(new.factor_coefs_j,1,t(wj_sw[i,]),"*"),1,diag),n.f*n.factors,n.factors,byrow = T)%*%diag((new.sigma[i,]^4),n.factors)%*%t(matrix(apply(sweep(new.factor_coefs_j,1,t(wj_sw2[i,]),"*"),1,diag),n.f*n.factors,n.factors,byrow = T))
+        }
+
+        if(n.factors==1){
+          -d_uw*new.sigma[i,]-Ei%*%H_in1%*%t(Ei)+Ei%*%H_in1%*%UB+t(UB)%*%H_in1%*%t(Ei)+UU+t(UB)%*%H_in1%*%UB
+        }else{
+          -kronecker(d_uw,diag(new.sigma[i,]))-Ei%*%H_in1%*%t(Ei)+Ei%*%H_in1%*%UB+t(UB)%*%H_in1%*%t(Ei)+UU+t(UB)%*%H_in1%*%UB
+        }
+
+      }
+
+      D_betabeta <- matrix(rowMeans(sapply(1:n.s,fun6)),n.f*n.factors,n.f*n.factors)
+      ##########
+
+      ##########
+
+      ##D_beta0t(beta0)
+      fun7 <- function(i) {
+
+        D_beta0 <- ifelse(X[i,]>0,(X-wj)[i,],-sw[i,])
+
+        xwj_sw <- ifelse(X>0,wj,sw)
+        if(n.factors==1){
+          E_p <- sweep(new.sigma[i,]*t(new.factor_coefs_j),1,new.factor_scores[i,],"+")
+        }else{
+          E_p <- sweep(diag(new.sigma[i,])%*%t(new.factor_coefs_j),1,new.factor_scores[i,],"+")
+        }
+        d1 <- t(sweep(E_p,2,-sw[i,],"*"))
+        d2 <- t(kronecker(new.factor_scores[i,],t(X[i,])))-t(sweep(E_p,2,wj[i,],"*"))
+        X_fa <- matrix(X[i,],n.f,n.factors)
+        D_beta <- ifelse(c(X_fa)>0,c(d2),c(d1))
+
+        den <- (new.eta+(1-new.eta)*exp(-wj[i,]))
+        den <- ifelse(den==0, 1e-9,den)
+        e1 <- (1-exp(-wj)[i,])/den
+        e2 <- -1/(1-new.eta)
+        D_eta <- ifelse(X[i,]>0,e2,e1)
+
+        c(D_beta0,D_beta,D_eta)%*% t(c(D_beta0,D_beta,D_eta))
+
+      }
+      e_matrix <- matrix(rowMeans(sapply(1:n.s,fun7)),(n.f*n.factors+n.f*2),(n.f*n.factors+n.f*2))
+      ##########
+
+
+      ##########
+      a_matrix <- cbind(D_beta0beta0,D_beta0beta,D_beta0eta)
+      b_matrix <- cbind(t(D_beta0beta),D_betabeta,D_betaeta)
+      c_matrix <- cbind(t(D_beta0eta),t(D_betaeta),D_etaeta)
+      d_matrix <- rbind(a_matrix,b_matrix,c_matrix)
+
+      V_matrix <- MASS::ginv(d_matrix)%*%e_matrix%*%MASS::ginv(d_matrix)
+
+
+      ##########
+      alfa <- (1 - level) / 2
+      b0up <-new.factor_coefs_0+ qnorm(1 - alfa) * (sqrt(diag(V_matrix))[1:n.f])
+      b0low <-new.factor_coefs_0+ qnorm(alfa) * (sqrt(diag(V_matrix))[1:n.f])
+
+      elow <-new.eta+ qnorm(alfa) * (sqrt(diag(V_matrix))[(n.f+n.f*n.factors+1):(n.f*n.factors+n.f*2)])
+      eup <-new.eta+ qnorm(1 - alfa) * (sqrt(diag(V_matrix))[(n.f+n.f*n.factors+1):(n.f*n.factors+n.f*2)])
+
+      blow <-new.factor_coefs_j+ qnorm(alfa) * (sqrt(diag(V_matrix))[(1+n.f):(n.f+n.f*n.factors)])
+      bup <-new.factor_coefs_j+ qnorm(1 - alfa) * (sqrt(diag(V_matrix))[(1+n.f):(n.f+n.f*n.factors)])
+
+      conf <- cbind(c(b0low,blow,elow), c(b0up,bup,eup))
+
+      colnames(conf) <-  c(paste(alfa * 100, "%"), paste((1 - alfa) * 100, "%"))
+      rownames(conf)[1:n.f]<- c("beta0")
+      rownames(conf)[(1+n.f):(n.f+n.f*n.factors)]<- c("beta")
+      rownames(conf)[(n.f+n.f*n.factors+1):(n.f*n.factors+n.f*2)]<-c("eta")
+
+      out.list$sd <- sqrt(diag(V_matrix))
+      out.list$conf <- conf
+
+      return(out.list)
+    }
+
+    if(sd.errors) {
+      if(trace) cat("Calculating standard errors \n")
+      tr <- try({sds <- sd_sandwich(out=out.list)
+      out.list$sd <- sds$sd;
+      out.list$conf <- sds$conf})
+      if(inherits(tr, "try-error")) { cat("Standard errors for parameters could not be calculated.\n") }
+    }
+
     return(out.list)
   }
-  
+
   if(rank==FALSE){
-    re <- tryCatch({ZILNMVA(X,V,n.factors,trace,maxit,cv_group=NULL)},error=function(e){NaN})
+    out.list <- tryCatch({ZILNMVA(X,V,n.factors,trace,maxit,cv_group=NULL,sd.errors,level)},error=function(e){NaN})
   }else{
     if (parallel){
       #cl <- parallel::makeCluster(detectCores(logical = FALSE))
@@ -699,7 +981,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
     r <- 5
     fold <- 5
     if(rank=="BIC"){
-      
+
       beta <- list()
       beta0 <- list()
       f <- list()
@@ -711,13 +993,16 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       eta <- list()
       sigma <- list()
       gamma <- list()
+      if(sd.errors) {
+        sd <- list()
+        conf <- list()}
       iter <- rep(NaN,r)
       L <- rep(NaN,r)
       G_w <- rep(NaN,r);bic <- rep(NaN,r);
-      
+
       if (parallel){
         Mres <- foreach::foreach(w=1:r) %dopar% {
-          re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL)},error=function(e){NaN})
+          re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL,sd.errors,level)},error=function(e){NaN})
           re
         }
         for(w in 1:r){
@@ -737,6 +1022,9 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
             bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
             mu[[w]] <- Mres[[w]]$mu
             muz[[w]] <- Mres[[w]]$muz
+            if(sd.errors) {
+              sd[[w]] <- Mres[[w]]$sd
+              conf[[w]] <- Mres[[w]]$conf}
           }else{
             L[w] <- NaN
             iter[w] <- NaN
@@ -753,11 +1041,14 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
             bic[w] <- NaN
             mu[[w]] <- NaN
             muz[[w]] <- NaN
+            if(sd.errors) {
+              sd[[w]] <- NaN
+              conf[[w]] <- NaN}
           }
         }
       }else{
         for(w in 1:r){
-          re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL)},error=function(e){NaN})
+          re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL,sd.errors,level)},error=function(e){NaN})
           if(!is.na(re$VLB)){
             L[w] <- re$VLB
             iter[w] <- re$iter
@@ -774,6 +1065,9 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
             bic[w] <- -2*L[w]+(log(n)+log(p))*G_w[w]
             mu[[w]] <- re$mu
             muz[[w]] <- re$muz
+            if(sd.errors) {
+              sd[[w]] <- re$sd
+              conf[[w]] <- re$conf}
           }else{
             L[w] <- NaN
             iter[w] <- NaN
@@ -790,10 +1084,13 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
             bic[w] <- NaN
             mu[[w]] <- NaN
             muz[[w]] <- NaN
+            if(sd.errors) {
+              sd[[w]] <- NaN
+              conf[[w]] <- NaN}
           }
         }
       }
-      
+
       out.list$bic <- which.min(bic)
       out.list$VLB <- L[[(which.min(bic))]]
       out.list$iter <- iter[[(which.min(bic))]]
@@ -808,6 +1105,10 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       out.list$Q2 <- Q2[[(which.min(bic))]]
       out.list$mu <- mu[[(which.min(bic))]]
       out.list$muz <- muz[[(which.min(bic))]]
+      if(sd.errors) {
+        out.list$sd <- sd[[(which.min(bic))]]
+        out.list$conf <- conf[[(which.min(bic))]]}
+
     }
     if(rank=="CV"){
       cv=0
@@ -818,7 +1119,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         }
         cvs <- sample(cvs, length(cvs), replace = FALSE)
         cvs <- matrix(cvs, nrow = n, ncol = p)
-        
+
         All_rept <- NULL
         for (rept in 1:fold){
           cvsample <- cvs
@@ -827,12 +1128,12 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           L_rept <- matrix(0, nrow = 1, ncol = r)
           if (parallel){
             Mres <- foreach::foreach(w=1:r)%dopar% {
-              re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample)$VLB_rept},error=function(e){NaN})
+              re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample,sd.errors,level)$VLB_rept},error=function(e){NaN})
             }
             L_rept[1,(1:r)] <- Mres
           }else{
             for(w in 1:r){
-              L_rept[1,w] <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample)$VLB_rept},error=function(e){NaN})
+              L_rept[1,w] <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=cvsample,sd.errors,level)$VLB_rept},error=function(e){NaN})
             }
           }
           All_rept <- rbind(All_rept, L_rept)
@@ -841,9 +1142,9 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
         cv <- tryCatch({which.max(colSums(matrix(unlist(All_rept),fold,r)))},error=function(e){0})
         cv <- ifelse(length(cv)==0,0,cv)
       }
-      
-      re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,cv_group=NULL)},error=function(e){NaN})
-      
+
+      re <- tryCatch({ZILNMVA(X,V,n.factors=cv,trace,maxit,cv_group=NULL,sd.errors,level)},error=function(e){NaN})
+
       out.list$cv <- cv
       out.list$VLB <- re$VLB
       out.list$iter <- re$iter
@@ -858,12 +1159,17 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       out.list$Q2 <-re$Q2
       out.list$mu <- re$mu
       out.list$muz <- re$muz
-      
+      if(sd.errors) {
+        out.list$sd <- re$sd
+        out.list$conf <- re$conf}
+
     }
     if (parallel){
       parallel::stopCluster(cl = cl)
     }
+
     return(out.list)
-    
+
   }
+
 }

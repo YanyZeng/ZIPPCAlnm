@@ -1006,7 +1006,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
           re
         }
         for(w in 1:r){
-          if(!is.na(Mres[[w]]$VLB)){
+          if(!is.na(Mres[[w]])[1]){
             L[w] <- Mres[[w]]$VLB
             iter[w] <- Mres[[w]]$iter
             beta[[w]] <- Mres[[w]]$params$factor_coefs_j
@@ -1049,7 +1049,7 @@ ZIPPCAlnm <- function(X, V=NULL, n.factors=2, rank=FALSE,
       }else{
         for(w in 1:r){
           re <- tryCatch({ZILNMVA(X,V,n.factors=w,trace,maxit,cv_group=NULL,sd.errors,level)},error=function(e){NaN})
-          if(!is.na(re$VLB)){
+          if(!is.na(re)[1]){
             L[w] <- re$VLB
             iter[w] <- re$iter
             beta[[w]] <- re$params$factor_coefs_j
